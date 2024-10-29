@@ -33,7 +33,7 @@ The following Python scripts are provided for testing the DL methods:
 - `Test_GAT_Rate_vs_K.py`: This script generates the sum-rate of the proposed DL method for case $\text{SNR}=10 \text{dB}$ under varying number of users.
 
 ## Results
-The figure of the simulations are stored in the `Figs` directory, which contains the following figures:
+The figures of the simulations are stored in the `Figs` directory, which contains the following figures:
 - `Rate_vs_SNR_L=4_B=10_K=6.fig`: The sum-rate vs. $\text{SNR}$ curve for $K=6$ users.
 - `Rate_vs_K_L=4_B=10_SNR=10dB.fig`: The sum-rate vs. number of users for $\text{SNR}=10 \text{dB}$.
 
