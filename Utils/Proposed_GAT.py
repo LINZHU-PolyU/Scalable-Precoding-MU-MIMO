@@ -5,12 +5,12 @@ from Utils.residual_vq import RVQ
 
 
 class GNN_init_layer(nn.Module):
-    def __init__(self, vq_dim):
+    def __init__(self, D):
         super(GNN_init_layer, self).__init__()
-        self.vq_dim = vq_dim
+        self.D = D
 
         self.linear1 = nn.Sequential(
-            nn.Linear(in_features=self.vq_dim,
+            nn.Linear(in_features=self.D,
                       out_features=1024),
             nn.Mish(),
         )
@@ -101,7 +101,7 @@ class Pilot_Network(nn.Module):
 
 
 class encoder(nn.Module):
-    def __init__(self, x_dim, vq_dim):
+    def __init__(self, x_dim, D):
         super(encoder, self).__init__()
         self.encoder = nn.Sequential(
             nn.Linear(x_dim, 1024),  # x_dim: dimension of input = 2L
@@ -113,7 +113,7 @@ class encoder(nn.Module):
             nn.Linear(512, 256),
             nn.BatchNorm1d(256),
             nn.Mish(),
-            nn.Linear(256, vq_dim),  # vq_dim: dimension of extracted feature
+            nn.Linear(256, D),  # D: dimension of extracted feature
             nn.Tanh()
         )
 
@@ -122,7 +122,7 @@ class encoder(nn.Module):
 
 
 class myModel(nn.Module):
-    def __init__(self, vq_dim, vq_b, n_ue, n_quantizer, BS_ant, UE_ant, time_samples, SNR):
+    def __init__(self, D, B, n_ue, n_quantizer, BS_ant, UE_ant, time_samples, SNR):
         super(myModel, self).__init__()
         self.SNR = SNR
         self.n_ue = n_ue  # K
@@ -133,12 +133,12 @@ class myModel(nn.Module):
 
         self.pilot = Pilot_Network(BS_ant, UE_ant, time_samples)  # Pilot Network
 
-        self.encoder = encoder(x_dim, vq_dim)  # Common Feature Extractor for all UEs
+        self.encoder = encoder(x_dim, D)  # Common Feature Extractor for all UEs
 
-        self.vq = RVQ(n_quantizer, vq_b, vq_dim, device=device)  # Common VQ for all UEs
+        self.vq = RVQ(n_quantizer, B, D, device=device)  # Common VQ for all UEs
 
         # GAT Precoding
-        self.GNN_init_layer = GNN_init_layer(vq_dim)
+        self.GNN_init_layer = GNN_init_layer(D)
         self.GNN_layer_1 = GNN_layer(n_ue)
         self.GNN_layer_2 = GNN_layer(n_ue)
         self.MLP_out = nn.Sequential(
@@ -166,14 +166,14 @@ class myModel(nn.Module):
             pilot_real_i = pilot_real_noisy[:, i, :].squeeze()  # pilot_real_i: b x L
             pilot_imag_i = pilot_imag_noisy[:, i, :].squeeze()  # pilot_imag_i: b x L
             pilot_i = torch.cat((pilot_real_i, pilot_imag_i), dim=-1)  # pilot_i: b x 2L
-            encoder_i_res = self.encoder(pilot_i)  # encoder_res: b x vq_dim
-            vq_i_res, _ = self.vq(encoder_i_res, train_mode)  # vq_i_res: b x vq_dim
+            encoder_i_res = self.encoder(pilot_i)  # encoder_res: b x D
+            vq_i_res, _ = self.vq(encoder_i_res, train_mode)  # vq_i_res: b x D
             encoder_res.append(encoder_i_res)
             vq_res.append(vq_i_res)
 
         # Compute quantization loss
-        encoder_res_cat = torch.cat(encoder_res, dim=-1)  # encoder_res_cat: b x (vq_dim * K)
-        vq_res_cat = torch.cat(vq_res, dim=-1)  # vq_res_cat: b x (vq_dim * K)
+        encoder_res_cat = torch.cat(encoder_res, dim=-1)  # encoder_res_cat: b x (D * K)
+        vq_res_cat = torch.cat(vq_res, dim=-1)  # vq_res_cat: b x (D * K)
         vq_loss = F.mse_loss(vq_res_cat, encoder_res_cat)
 
         # GAT Precoding
