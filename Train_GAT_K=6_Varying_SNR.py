@@ -64,7 +64,6 @@ B = 10  # Number of quantization bits
 D = B  # Dimension of the extracted feature
 SNR_dB_list = [20, 15, 10, 5, 0, -5]
 n_quantizer = 1  # Number of quantizer
-vq_b = int(B / n_quantizer)  # Number of bits per quantizer
 
 for SNR_dB in SNR_dB_list:
     print("***** SNR dB: ", SNR_dB, ' *****')
