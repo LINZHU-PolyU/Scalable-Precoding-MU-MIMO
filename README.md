@@ -1,7 +1,7 @@
 # Scalable Pilot, Feedback and Precoding Design for FDD Multi-User MIMO via Deep Learning
 
 The codes are for the paper "Scalable Pilot, Feedback and Precoding Design for FDD Multi-User MIMO via Deep Learning, " 
-which has been submitted to ICC2025 for possible publication.
+which has been submitted to IEEE ICC 2025 for possible publication.
 
 ## Requirements
 The DL model is implemented in Python and uses the PyTorch library. The following packages are required:
