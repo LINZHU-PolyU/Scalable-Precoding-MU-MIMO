@@ -65,7 +65,7 @@ for SNR_dB in SNR_dB_list:
         device = torch.device('cuda' if torch.cuda.is_available else 'cpu')
 
         # Initialize the model
-        model = baselineModel(n_ue=K, BS_ant=M, UE_ant=UE_antenna, B=B, time_samples=L, SNR=SNR_dB).to(device)
+        model = baselineModel(K=K, M=M, UE_ant=UE_antenna, B=B, L=L, SNR=SNR_dB).to(device)
 
         # Define the optimizer and scheduler
         optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999), amsgrad=False)

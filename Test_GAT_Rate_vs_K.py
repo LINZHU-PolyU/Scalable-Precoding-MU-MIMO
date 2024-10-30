@@ -49,10 +49,9 @@ for UE in UE_list:
     UE_antenna = 1  # MISO case
     L = int(1 / 4 * M)  # Length of the pilot sequence
     B = 10  # Number of quantization bits
-    vq_dim = B  # Dimension of the extracted feature
+    D = B  # Dimension of the extracted feature
     SNR_dB = 10
     n_quantizer = 1  # Number of quantizer
-    vq_b = int(B / n_quantizer)  # Number of bits per quantizer
 
     # Define the device
     device = torch.device('cuda' if torch.cuda.is_available else 'cpu')
@@ -60,8 +59,7 @@ for UE in UE_list:
     # Testing data
     with torch.no_grad():
         tStart = time.time()
-        test_model = myModel(vq_dim=vq_dim, vq_b=vq_b, n_ue=UE, BS_ant=M, UE_ant=UE_antenna, n_quantizer=n_quantizer,
-                             time_samples=L, SNR=SNR_dB).to(device)
+        test_model = myModel(D=D, B=B, K=UE, M=M, UE_ant=UE_antenna, n_quantizer=n_quantizer, L=L, SNR=SNR_dB).to(device)
 
         # Load the trained model
         dirs = 'Saved_model/'

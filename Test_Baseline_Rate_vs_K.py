@@ -55,7 +55,7 @@ for K in UE_list:
     # Testing data
     with torch.no_grad():
         tStart = time.time()
-        test_model = baselineModel(n_ue=K, BS_ant=M, UE_ant=UE_antenna, B=B, time_samples=L, SNR=SNR_dB).to(device)
+        test_model = baselineModel(K=K, M=M, UE_ant=UE_antenna, B=B, L=L, SNR=SNR_dB).to(device)
 
         # Load the trained model
         dirs = 'Saved_model/'

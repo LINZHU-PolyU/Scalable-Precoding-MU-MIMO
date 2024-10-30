@@ -83,8 +83,7 @@ for SNR_dB in SNR_dB_list:
         device = torch.device('cuda' if torch.cuda.is_available else 'cpu')
 
         # Initialize the model
-        model = myModel(D=D, B=B, n_ue=K, BS_ant=M, UE_ant=UE_antenna, n_quantizer=n_quantizer,
-                        time_samples=L, SNR=SNR_dB).to(device)
+        model = myModel(D=D, B=B, K=K, M=M, UE_ant=UE_antenna, n_quantizer=n_quantizer, L=L, SNR=SNR_dB).to(device)
 
         # Training parameters
         n_epochs = 500  # Number of epochs

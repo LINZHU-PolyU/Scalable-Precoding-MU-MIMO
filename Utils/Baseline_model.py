@@ -3,14 +3,14 @@ import torch.nn as nn
 
 
 class Pilot_Network(nn.Module):
-    def __init__(self, BS_antenna, UE_antenna, time_samples):
+    def __init__(self, M, UE_antenna, L):
         super(Pilot_Network, self).__init__()
-        self.BS_antenna = BS_antenna  # M
+        self.M = M  # M
         self.UE_antenna = UE_antenna  # K
-        self.time_samples = time_samples  # L
+        self.L = L  # L
 
-        W_real = torch.empty(self.BS_antenna, self.time_samples)  # M x L
-        W_imag = torch.empty(self.BS_antenna, self.time_samples)  # M x L
+        W_real = torch.empty(self.M, self.L)  # M x L
+        W_imag = torch.empty(self.M, self.L)  # M x L
 
         # Initialize W_real and W_imag using Xavier
         nn.init.xavier_uniform_(W_real)
@@ -36,7 +36,7 @@ class Pilot_Network(nn.Module):
 
 
 class encoder(nn.Module):
-    def __init__(self, x_dim, vq_dim):
+    def __init__(self, x_dim, D):
         super(encoder, self).__init__()
         self.encoder = nn.Sequential(
             nn.Linear(x_dim, 1024),  # x_dim: dimension of input = 2L
@@ -48,7 +48,7 @@ class encoder(nn.Module):
             nn.Linear(512, 256),
             nn.BatchNorm1d(256),
             nn.ReLU(),
-            nn.Linear(256, vq_dim),  # vq_dim: dimension of extracted feature
+            nn.Linear(256, D),  # D: dimension of extracted feature
             # nn.Tanh()
         )
 
@@ -57,13 +57,13 @@ class encoder(nn.Module):
 
 
 class BF_Network(nn.Module):
-    def __init__(self, vq_dim, n_ue, BS_ant):
+    def __init__(self, D, K, M):
         super(BF_Network, self).__init__()
-        self.n_ue = n_ue  # K
-        self.BS_ant = BS_ant  # M
+        self.K = K  # K
+        self.M = M  # M
 
         self.decoder = nn.Sequential(
-            nn.Linear(vq_dim * n_ue, 1024),
+            nn.Linear(D * K, 1024),
             nn.BatchNorm1d(1024),
             nn.ReLU(),
             nn.Linear(1024, 512),
@@ -74,7 +74,7 @@ class BF_Network(nn.Module):
             nn.ReLU(),
         )
 
-        dim_out = n_ue * BS_ant
+        dim_out = K * M
         self.bf_real = nn.Linear(512, dim_out)
         self.bf_imag = nn.Linear(512, dim_out)
 
@@ -84,23 +84,23 @@ class BF_Network(nn.Module):
         w_imag = self.bf_imag(x)  # w_imag: b x KM
 
         # Reshape w_real, w_imag
-        w_real = w_real.view(-1, self.BS_ant, self.n_ue)  # w_real: b x M x K
-        w_imag = w_imag.view(-1, self.BS_ant, self.n_ue)  # w_imag: b x M x K
+        w_real = w_real.view(-1, self.M, self.K)  # w_real: b x M x K
+        w_imag = w_imag.view(-1, self.M, self.K)  # w_imag: b x M x K
         W = w_real + 1j * w_imag  # w: b x M x K
 
         return W
 
 
 class baselineModel(nn.Module):
-    def __init__(self, n_ue, BS_ant, UE_ant, B, time_samples, SNR):
+    def __init__(self, K, M, UE_ant, B, L, SNR):
         super(baselineModel, self).__init__()
-        self.pilot = Pilot_Network(BS_ant, UE_ant, time_samples)
+        self.pilot = Pilot_Network(M, UE_ant, L)
         self.SNR = SNR
-        x_dim = 2 * time_samples  # 2L
+        x_dim = 2 * L  # 2L
 
-        self.encoder = nn.ModuleList([encoder(x_dim, B) for _ in range(n_ue)])  # Each UE has its own encoder
+        self.encoder = nn.ModuleList([encoder(x_dim, B) for _ in range(K)])  # Each UE has its own encoder
         self.sigmoid = nn.Sigmoid()
-        self.BF_Network = BF_Network(B, n_ue, BS_ant)  # Beamforming Network
+        self.BF_Network = BF_Network(B, K, M)  # Beamforming Network
 
     def forward(self, x, alpha):
         # x -> complex, size = b x K x M
@@ -129,7 +129,7 @@ class baselineModel(nn.Module):
             encoder_res.append(enc_i_res)
 
         # Concatenate encoder results
-        encoder_res_cat = torch.cat(encoder_res, dim=-1)  # encoder_res_cat: b x (n_ue * B)
+        encoder_res_cat = torch.cat(encoder_res, dim=-1)  # encoder_res_cat: b x (K * B)
 
         # BF Network
         W = self.BF_Network(encoder_res_cat)  # W: b x M x K

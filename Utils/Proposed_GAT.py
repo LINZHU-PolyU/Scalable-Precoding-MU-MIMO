@@ -68,14 +68,14 @@ class GNN_layer(nn.Module):
 
 
 class Pilot_Network(nn.Module):
-    def __init__(self, BS_antenna, UE_antenna, time_samples):
+    def __init__(self, M, UE_antenna, L):
         super(Pilot_Network, self).__init__()
-        self.BS_antenna = BS_antenna  # M
-        self.UE_antenna = UE_antenna  # K
-        self.time_samples = time_samples  # L
+        self.M = M  # M
+        self.UE_antenna = UE_antenna
+        self.L = L  # L
 
-        W_real = torch.empty(self.BS_antenna, self.time_samples)  # M x L
-        W_imag = torch.empty(self.BS_antenna, self.time_samples)  # M x L
+        W_real = torch.empty(self.M, self.L)  # M x L
+        W_imag = torch.empty(self.M, self.L)  # M x L
 
         # Initialize W_real and W_imag using Xavier
         nn.init.xavier_uniform_(W_real)
@@ -122,16 +122,16 @@ class encoder(nn.Module):
 
 
 class myModel(nn.Module):
-    def __init__(self, D, B, n_ue, n_quantizer, BS_ant, UE_ant, time_samples, SNR):
+    def __init__(self, D, B, K, n_quantizer, M, UE_ant, L, SNR):
         super(myModel, self).__init__()
         self.SNR = SNR
-        self.n_ue = n_ue  # K
-        self.BS_ant = BS_ant  # M
+        self.K = K  # K
+        self.M = M  # M
         self.UE_ant = UE_ant
-        x_dim = 2 * time_samples  # 2L
+        x_dim = 2 * L  # 2L
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.pilot = Pilot_Network(BS_ant, UE_ant, time_samples)  # Pilot Network
+        self.pilot = Pilot_Network(M, UE_ant, L)  # Pilot Network
 
         self.encoder = encoder(x_dim, D)  # Common Feature Extractor for all UEs
 
@@ -139,12 +139,12 @@ class myModel(nn.Module):
 
         # GAT Precoding
         self.GNN_init_layer = GNN_init_layer(D)
-        self.GNN_layer_1 = GNN_layer(n_ue)
-        self.GNN_layer_2 = GNN_layer(n_ue)
+        self.GNN_layer_1 = GNN_layer(K)
+        self.GNN_layer_2 = GNN_layer(K)
         self.MLP_out = nn.Sequential(
             nn.Linear(512, 256),
             nn.Mish(),
-            nn.Linear(256, 2 * BS_ant),
+            nn.Linear(256, 2 * M),
         )
 
     def forward(self, x, train_mode=True):
@@ -162,7 +162,7 @@ class myModel(nn.Module):
         # Encoder
         encoder_res = []
         vq_res = []
-        for i in range(self.n_ue):
+        for i in range(self.K):
             pilot_real_i = pilot_real_noisy[:, i, :].squeeze()  # pilot_real_i: b x L
             pilot_imag_i = pilot_imag_noisy[:, i, :].squeeze()  # pilot_imag_i: b x L
             pilot_i = torch.cat((pilot_real_i, pilot_imag_i), dim=-1)  # pilot_i: b x 2L
@@ -179,7 +179,7 @@ class myModel(nn.Module):
         # GAT Precoding
         x_w = []
         # Initialization layer
-        for i in range(self.n_ue):
+        for i in range(self.K):
             vq_i_res = vq_res[i]
             GNN_init_res = self.GNN_init_layer(vq_i_res)  # GNN_init_res: b x 512
             x_w.append(GNN_init_res)  # x_w = [x_w_1, ..., x_w_K] --> x_w_i: b x 512
@@ -190,11 +190,11 @@ class myModel(nn.Module):
 
         # Reshape layer
         W = []
-        for i in range(self.n_ue):
+        for i in range(self.K):
             x_w_i = x_w[i]  # x_w_i: b x 512
             x_w_i = self.MLP_out(x_w_i)  # x_w_i: b x 2M
-            x_w_i_r = x_w_i[:, :self.BS_ant]  # x_w_i_r: b x M
-            x_w_i_i = x_w_i[:, self.BS_ant:]
+            x_w_i_r = x_w_i[:, :self.M]  # x_w_i_r: b x M
+            x_w_i_i = x_w_i[:, self.M:]
             x_w_i_C = x_w_i_i + 1j * x_w_i_r  # x_w_i_C: b x M
             W.append(x_w_i_C)
         W = torch.stack(W, dim=-1)  # W: b x M x K
@@ -206,7 +206,7 @@ class myModel(nn.Module):
 
         # Compute sum rate
         rate_list = []
-        for i in range(self.n_ue):
+        for i in range(self.K):
             h_i = x[:, i, :].unsqueeze(1)  # h_i: b x 1 x M
             W_i = W[:, :, i].unsqueeze(2)  # W_i: b x M x 1
             W_i_int = torch.cat((W[:, :, :i], W[:, :, i + 1:]), dim=2)  # W_i_int: b x M x (K-1)
